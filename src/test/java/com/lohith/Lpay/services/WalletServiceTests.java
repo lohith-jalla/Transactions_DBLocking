@@ -3,6 +3,9 @@ package com.lohith.Lpay.services;
 import com.lohith.Lpay.entities.Role;
 import com.lohith.Lpay.entities.User;
 import com.lohith.Lpay.entities.Wallet;
+import com.lohith.Lpay.exceptions.InsufficientBalanceException;
+import com.lohith.Lpay.exceptions.InvalidAmountException;
+import com.lohith.Lpay.exceptions.WalletNotFoundException;
 import com.lohith.Lpay.repos.TransactionRepo;
 import com.lohith.Lpay.repos.WalletRepo;
 import org.junit.jupiter.api.DisplayName;
@@ -35,7 +38,7 @@ public class WalletServiceTests {
 
     @Test
     @DisplayName("Should Debit money from sender and credit it to receiver")
-    public void TransferMoneyTest(){
+    public void TransferMoneyTest_ShouldSuccessfullyDebitFromSenderCreditToReceiver(){
 
         // ********* Arrange ****************
         BigDecimal amount = new BigDecimal("20");
@@ -68,7 +71,7 @@ public class WalletServiceTests {
 
     @Test
     @DisplayName("Should credit money into user Account")
-    public void TestCredit(){
+    public void TestCredit_ShouldSuccessfullyCreditTOUser(){
         // ************** Arrange ****************
         BigDecimal amount = new BigDecimal("20");
 
@@ -93,7 +96,7 @@ public class WalletServiceTests {
 
     @Test
     @DisplayName("Should debit money from user")
-    public void testDebit(){
+    public void testDebit_ShouldSuccessfullyDebitFromUser(){
         // ************** Arrange *************
         BigDecimal amount = new BigDecimal("20");
 
@@ -112,6 +115,60 @@ public class WalletServiceTests {
         assertEquals(new BigDecimal("80"),wallet.getBalance(),"Amount Debited Successfully");
 
         verify(walletRepo,times(1)).save(any(Wallet.class));
+    }
+
+    @Test
+    @DisplayName("Insufficient Balance Test")
+    public void testDebit_InSufficientBalanceMustThrowException(){
+        BigDecimal amount = new BigDecimal("20");
+
+        User user = new User();
+        user.setUserId(1L);
+        user.setName("Lohith");
+
+        Wallet wallet = new Wallet();
+        wallet.setWalletId(1L);
+        wallet.setUser(user);
+        wallet.setBalance(new BigDecimal("0"));
+
+        when(walletRepo.findByUserIdForUpdate(1L)).thenReturn(Optional.of(wallet));
+
+        assertThrows(InsufficientBalanceException.class,()->walletService.debitMoney(1L,amount,"testDebit-2"),"Insufficient Balance");
+    }
+
+    @Test
+    @DisplayName("Invalid Amount Test")
+    public void testCredit_InValidAmountMustThrowException(){
+        BigDecimal amount = new BigDecimal("0");
+
+        User user = new User();
+        user.setUserId(1L);
+        user.setName("Lohith");
+
+        Wallet wallet = new Wallet();
+        wallet.setWalletId(1L);
+        wallet.setUser(user);
+        wallet.setBalance(new BigDecimal("0"));
+
+        assertThrows(InvalidAmountException.class,()->walletService.creditMoney(1L,amount,"testCredit-2"),"Insufficient Balance");
+    }
+
+    @Test
+    @DisplayName("Sender Not Found Exception")
+    public void testTransfer_SenderNotFoundMustThrowException(){
+        BigDecimal amount = new BigDecimal("10");
+
+        User user = new User();
+        user.setUserId(1L);
+        user.setName("Lohith");
+
+        Wallet sender = new Wallet();
+        sender.setWalletId(1L);
+        sender.setBalance(new BigDecimal("100"));
+
+        when(walletRepo.findByUserIdForUpdate(2L)).thenReturn(Optional.of(sender));
+
+        assertThrows(WalletNotFoundException.class,() -> walletService.transferMoney(2L,1L,amount,"transferTest-6"));
     }
 
 }
